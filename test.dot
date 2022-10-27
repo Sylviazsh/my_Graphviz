@@ -1,0 +1,23 @@
+digraph G {
+// Graph1
+   rankdir=LR;
+   a -> b;
+   b -> c;
+   subgraph x{
+       rank=same;
+       b->d;
+   }
+   subgraph y{
+       //rank = same;
+       d->e;
+   }
+   subgraph z{
+     rank=same;
+     c->e;
+   }
+
+// Graph2
+    hello [shape=box]; //设置节点属性
+    world [style=filled, color="1,1,1"]; //节点多个属性用逗号分开
+    hello -> world [label="Yes"]; //设置边的属性
+}
