@@ -20,7 +20,7 @@ digraph cartographer{
         node [style=filled];
         node [fillcolor="#b3cde3"];
         "MapBuilderBridge::SerializeState";"MapBuilderBridge::RunFinalOptimization";"MapBuilderBridge::HandleSubmapQuery";"MapBuilderBridge::HandleTrajectoryQuery";
-        "MapBuilderBridge::AddTrajectory";"MapBuilderBridge::FinishTrajectory";"MapBuilderBridge::sensor_bridge";"MapBuilderBridge::OnLocalSlamResult";
+        "MapBuilderBridge::AddTrajectory";"MapBuilderBridge::FinishTrajectory";"MapBuilderBridge::OnLocalSlamResult";"MapBuilderBridge::GetTrajectoryStates";
     }
 
     subgraph SensorBridge{
@@ -41,18 +41,21 @@ digraph cartographer{
         node [style=filled];
         node [fillcolor="#fed9a6"];
         "PoseExtrapolator::AddPose";"PoseExtrapolator::PoseExtrapolator";"PoseExtrapolator::AddImuData";"PoseExtrapolator::AddOdometryData";"PoseExtrapolator::ExtrapolatePose";
-        "PoseExtrapolator::EstimateGravityOrientation";"PoseExtrapolator::TrimImuData";"PoseExtrapolator::TrimOdometryData";
+        "PoseExtrapolator::EstimateGravityOrientation";"PoseExtrapolator::TrimImuData";"PoseExtrapolator::TrimOdometryData";"PoseExtrapolator::AdvanceImuTracker";
+        "PoseExtrapolator::UpdateVelocitiesFromPoses";"PoseExtrapolator::ExtrapolateTranslation";"PoseExtrapolator::ExtrapolateRotation";
     }
 
     subgraph PoseGraph2D{
         node [style=filled];
         node [fillcolor="#ffffcc"];
-        "PoseGraph2D::PoseGraph2D";"PoseGraph2D::AddTrimmer";"PoseGraph2D::AddWorkItem";"PoseGraph2D::FinishTrajectory";"PoseGraph2D::IsTrajectoryFinished";
+        "PoseGraph2D::PoseGraph2D";"PoseGraph2D::AddTrimmer";"PoseGraph2D::AddWorkItem";"PoseGraph2D::FinishTrajectory";
         "PoseGraph2D::HandleWorkQueue";"PoseGraph2D::RunOptimization";"PoseGraph2D::AddImuData";"PoseGraph2D::DrainWorkQueue";"PoseGraph2D::SetInitialTrajectoryPose";
         "PoseGraph2D::AddNode";"PoseGraph2D::GetLocalToGlobalTransform";"PoseGraph2D::AppendNode";"PoseGraph2D::AddWorkItem";"PoseGraph2D::ComputeLocalToGlobalTransform";
         "PoseGraph2D::AddTrajectoryIfNeeded";"PoseGraph2D::CanAddWorkItemModifying";"PoseGraph2D::DeleteTrajectoriesIfNeeded";"PoseGraph2D::GetTrajectoryNodePoses";
         "PoseGraph2D::TrimmingHandle::GetOptimizedSubmapData";"PoseGraph2D::TrimmingHandle::TrimSubmap";"PoseGraph2D::ComputeConstraint";"PoseGraph2D::InitializeGlobalSubmapPoses";
-        "PoseGraph2D::RunFinalOptimization";"PoseGraph2D::WaitForAllComputations";"PoseGraph2D::ComputeConstraintsForNode";
+        "PoseGraph2D::RunFinalOptimization";"PoseGraph2D::WaitForAllComputations";"PoseGraph2D::ComputeConstraintsForNode";"PoseGraph2D::UpdateTrajectoryConnectivity";
+        "PoseGraph2D::TrimmingHandle::TrimSubmap";"PoseGraph2D::TrimmingHandle::SetTrajectoryState";"PoseGraph2D::AddLandmarkData";"PoseGraph2D::AddFixedFramePoseData";
+        "PoseGraph2D::IsTrajectoryFinished";"PoseGraph2D::GetTrajectoryStates";
     }
 
     subgraph LocalTrajectoryBuilder2D{
@@ -67,7 +70,8 @@ digraph cartographer{
         node [style=filled];
         node [fillcolor="#bebada"];
         "OptimizationProblem2D::Solve";"OptimizationProblem2D::AddImuData";"OptimizationProblem2D::AddSubmap";"OptimizationProblem2D::SetMaxNumIterations";
-        "OptimizationProblem2D::AddTrajectoryNode";"OptimizationProblem2D::CalculateOdometryBetweenNodes"
+        "OptimizationProblem2D::AddTrajectoryNode";"OptimizationProblem2D::CalculateOdometryBetweenNodes";"OptimizationProblem2D::InterpolateOdometry";
+        "OptimizationProblem2D::AddFixedFramePoseData";
     }
 
     subgraph ConstraintBuilder2D{
@@ -82,6 +86,8 @@ digraph cartographer{
         node [fillcolor="#b3e2cd"];
         "FastCorrelativeScanMatcher2D::MatchFullSubmap";"FastCorrelativeScanMatcher2D::Match";"FastCorrelativeScanMatcher2D::MatchWithSearchParameters";
         "FastCorrelativeScanMatcher2D::ComputeLowestResolutionCandidates";"FastCorrelativeScanMatcher2D::BranchAndBound";
+        "FastCorrelativeScanMatcher2D::GenerateLowestResolutionCandidates";"FastCorrelativeScanMatcher2D::ScoreCandidates";
+        "FastCorrelativeScanMatcher2D::FastCorrelativeScanMatcher2D";
     }
 
     subgraph mapping{
@@ -90,6 +96,19 @@ digraph cartographer{
         "mapping::CreateMapBuilder";"mapping::CreateGlobalTrajectoryBuilder2D";"mapping::MaybeAddPureLocalizationTrimmer";"mapping::ComputeSubmapFreshness";
         "mapping::AddSubmapsToSubmapCoverageGrid2D";"mapping::FindSubmapIdsToTrim";"mapping::CastRays";"mapping::GrowAsNeeded";
         "mapping::ProbabilityToCorrespondenceCost";"mapping::CorrespondenceCostToValue";"mapping::ValueToCorrespondenceCost";"mapping::CorrespondenceCostToProbability";
+    }
+
+    subgraph mapping{
+        node [style=filled];
+        node [fillcolor="#dcdcdc"];
+        "sensor::TrajectoryCollator";"sensor::AdaptiveVoxelFilter";"sensor::CropRangeData";
+        "sensor::TransformRangeData";"sensor::VoxelFilter";"sensor::AdaptivelyVoxelFiltered";
+    }
+
+    subgraph mapping{
+        node [style=filled];
+        node [fillcolor="#dcdcdc"];
+        "scan_matching::GenerateRotatedScans";"scan_matching::DiscretizeScans";"scan_matching::CreateOccupiedSpaceCostFunction2D";
     }
     
     main->Run;
@@ -113,42 +132,55 @@ digraph cartographer{
         "Node::HandleSubmapQuery"->"MapBuilderBridge::HandleSubmapQuery"->{"MapBuilder::SubmapToProto";"cartographer_ros::ToGeometryMsgPose"};
         "Node::HandleTrajectoryQuery"->{"Node::TrajectoryStateToStatus";"MapBuilderBridge::HandleTrajectoryQuery"};
             "MapBuilderBridge::HandleTrajectoryQuery"->{"PoseGraph2D::GetTrajectoryNodePoses";"cartographer_ros::ToGeometryMsgPose"};
-        "Node::HandleStartTrajectory"->{"cartographer_ros::ToRigid3d";"Node::TrajectoryStateToStatus";"Node::AddTrajectory"};
+        "Node::HandleStartTrajectory"->{"Node::TrajectoryStateToStatus";"Node::AddTrajectory"};
         "Node::HandleFinishTrajectory"->"Node::FinishTrajectoryUnderLock"->{"Node::TrajectoryStateToStatus";"MapBuilderBridge::FinishTrajectory"};
             "MapBuilderBridge::FinishTrajectory"->"MapBuilder::FinishTrajectory"->{"TrajectoryCollator::FinishTrajectory";"PoseGraph2D::FinishTrajectory"};
-                "TrajectoryCollator::FinishTrajectory"->"OrderedMultiQueue::MarkQueueAsFinished";
-                "PoseGraph2D::FinishTrajectory"->"PoseGraph2D::AddWorkItem";
+                "TrajectoryCollator::FinishTrajectory"->"OrderedMultiQueue::MarkQueueAsFinished"->"OrderedMultiQueue::Dispatch";
+                "PoseGraph2D::FinishTrajectory"->{"PoseGraph2D::AddWorkItem";"PoseGraph2D::IsTrajectoryFinished"};
         
         "Node::PublishLocalTrajectoryData"->"PoseExtrapolator::AddPose";
     
     "Node::StartTrajectoryWithDefaultTopics"->"Node::AddTrajectory"->{"Node::ComputeExpectedSensorIds";"MapBuilderBridge::AddTrajectory";"Node::AddExtrapolator";"Node::AddSensorSamplers";"Node::LaunchSubscribers"};
         "MapBuilderBridge::AddTrajectory"->{"MapBuilder::AddTrajectoryBuilder";"MapBuilderBridge::OnLocalSlamResult";"SensorBridge::SensorBridge"};
-            "MapBuilder::AddTrajectoryBuilder"->{"MotionFilter::MotionFilter";"LocalTrajectoryBuilder2D::LocalTrajectoryBuilder2D";"mapping::CreateGlobalTrajectoryBuilder2D";"mapping::MaybeAddPureLocalizationTrimmer";"PoseGraph2D::SetInitialTrajectoryPose"};
-                "mapping::CreateGlobalTrajectoryBuilder2D"->"GlobalTrajectoryBuilder:GlobalTrajectoryBuilder";
+            "MapBuilder::AddTrajectoryBuilder"->{"MotionFilter::MotionFilter";"LocalTrajectoryBuilder2D::LocalTrajectoryBuilder2D";"CollatedTrajectoryBuilder::CollatedTrajectoryBuilder";"mapping::CreateGlobalTrajectoryBuilder2D";"mapping::MaybeAddPureLocalizationTrimmer";"PoseGraph2D::SetInitialTrajectoryPose"};
+                "CollatedTrajectoryBuilder::CollatedTrajectoryBuilder"->{"TrajectoryCollator::AddTrajectory";"CollatedTrajectoryBuilder::HandleCollatedSensorData";}
+                    "CollatedTrajectoryBuilder::HandleCollatedSensorData"->"Dispatchable::AddToTrajectoryBuilder"->"GlobalTrajectoryBuilder::AddSensorData";
+                "mapping::CreateGlobalTrajectoryBuilder2D"->{"GlobalTrajectoryBuilder:GlobalTrajectoryBuilder";"LocalTrajectoryBuilder2D";"PoseGraph2D::PoseGraph2D";}
                 "mapping::MaybeAddPureLocalizationTrimmer"->{"PoseGraph2D::AddTrimmer";"PureLocalizationTrimmer::PureLocalizationTrimmer"};
+                    "PureLocalizationTrimmer::PureLocalizationTrimmer"->{"PoseGraph2D::TrimmingHandle::TrimSubmap";"PoseGraph2D::TrimmingHandle::SetTrajectoryState";}
                     "PoseGraph2D::AddTrimmer"->"PoseGraph2D::AddWorkItem"->{"Task::SetWorkItem";"PoseGraph2D::DrainWorkQueue"};
                         "PoseGraph2D::DrainWorkQueue"->{"ConstraintBuilder2D::WhenDone";"PoseGraph2D::HandleWorkQueue"};
-                            "ConstraintBuilder2D::WhenDone"->"ConstraintBuilder2D::RunWhenDoneCallback";
-                            "PoseGraph2D::HandleWorkQueue"->{"PoseGraph2D::RunOptimization":"PoseGraph2D::UpdateTrajectoryConnectivity";"PoseGraph2D::DeleteTrajectoriesIfNeeded";"OverlappingSubmapsTrimmer2D::Trim";"PoseGraph2D::DrainWorkQueue"};
+                            "ConstraintBuilder2D::WhenDone"->{"Task::SetWorkItem";"ConstraintBuilder2D::RunWhenDoneCallback"};
+                            "PoseGraph2D::HandleWorkQueue"->{"PoseGraph2D::RunOptimization";"PoseGraph2D::UpdateTrajectoryConnectivity";"PoseGraph2D::DeleteTrajectoriesIfNeeded";"OverlappingSubmapsTrimmer2D::Trim";"PoseGraph2D::DrainWorkQueue"};
+                                "PoseGraph2D::DeleteTrajectoriesIfNeeded"->"PoseGraph2D::TrimmingHandle::TrimSubmap";
+                                "PoseGraph2D::UpdateTrajectoryConnectivity"->"TrajectoryConnectivityState::Connect"->"ConnectedComponents::Connect";
                                 "PoseGraph2D::RunOptimization"->{"OptimizationProblem2D::Solve";"PoseGraph2D::ComputeLocalToGlobalTransform"}
                                     "OptimizationProblem2D::Solve"->{"optimization::CreateAutoDiffSpaCostFunction";"optimization::AddLandmarkCostFunctions";"OptimizationProblem2D::CalculateOdometryBetweenNodes"};
+                                        "OptimizationProblem2D::CalculateOdometryBetweenNodes"->"OptimizationProblem2D::InterpolateOdometry";
                             "OverlappingSubmapsTrimmer2D::Trim"->{"PoseGraph2D::TrimmingHandle::GetOptimizedSubmapData";"mapping::ComputeSubmapFreshness";"mapping::AddSubmapsToSubmapCoverageGrid2D";"mapping::FindSubmapIdsToTrim";"PoseGraph2D::TrimmingHandle::TrimSubmap"};
+                                "mapping::AddSubmapsToSubmapCoverageGrid2D"->"Grid2D::ComputeCroppedLimits";
             "Node::AddExtrapolator"->"PoseExtrapolator::PoseExtrapolator";
             "Node::AddSensorSamplers"->"FixedRatioSampler::FixedRatioSampler";
     
     "Node::LaunchSubscribers"->{"Node::HandleLaserScanMessage";"Node::HandleMultiEchoLaserScanMessage";"Node::HandlePointCloud2Message";"Node::HandleImuMessage";"Node::HandleOdometryMessage";"Node::HandleNavSatFixMessage";"Node::HandleLandmarkMessage"};
         "Node::HandleLaserScanMessage"->{"FixedRatioSampler::Pulse";"SensorBridge::HandleLaserScanMessage"};
             "SensorBridge::HandleLaserScanMessage"->"SensorBridge::HandleLaserScan"->{subdivision;"SensorBridge::HandleRangefinder"};
-                "SensorBridge::HandleRangefinder"->{"TfBridge::LookupToTracking";"CollatedTrajectoryBuilder::AddSensorData";"GlobalTrajectoryBuilder::AddSensorData"};
-                    "CollatedTrajectoryBuilder::AddSensorData"->"CollatedTrajectoryBuilder::AddData"->"TrajectoryCollator::AddSensorData"->"OrderedMultiQueue::Add"->"OrderedMultiQueue::Dispatch";
+                "SensorBridge::HandleRangefinder"->"CollatedTrajectoryBuilder::AddSensorData"->"CollatedTrajectoryBuilder::AddData";
+                        "CollatedTrajectoryBuilder::AddData"->"TrajectoryCollator::AddSensorData"->"OrderedMultiQueue::Add"->"OrderedMultiQueue::Dispatch";
                     "GlobalTrajectoryBuilder::AddSensorData"->{"LocalTrajectoryBuilder2D::AddRangeData";"PoseGraph2D::AddNode"};
                         "LocalTrajectoryBuilder2D::AddRangeData"->{"RangeDataCollator::AddRangeData";"LocalTrajectoryBuilder2D::InitializeExtrapolator";"PoseExtrapolator::ExtrapolatePose";"获取第i束激光及其原点，将hit转换为local坐标系，合理则加入accumulated_range_data_";"PoseExtrapolator::EstimateGravityOrientation";"LocalTrajectoryBuilder2D::AddAccumulatedRangeData";"LocalTrajectoryBuilder2D::TransformToGravityAlignedFrameAndFilter"};
-                            "LocalTrajectoryBuilder2D::AddAccumulatedRangeData"->{"PoseExtrapolator::ExtrapolatePose";"LocalTrajectoryBuilder2D::ScanMatch";"PoseExtrapolator::AddPose";"LocalTrajectoryBuilder2D::InsertIntoSubmap"};
+                            "LocalTrajectoryBuilder2D::TransformToGravityAlignedFrameAndFilter"->{"sensor::CropRangeData";"sensor::TransformRangeData";"sensor::VoxelFilter";}
+                            "PoseExtrapolator::EstimateGravityOrientation"->"PoseExtrapolator::AdvanceImuTracker";
+                            "RangeDataCollator::AddRangeData"->"RangeDataCollator::CropAndMerge";
+                            "LocalTrajectoryBuilder2D::AddAccumulatedRangeData"->{"PoseExtrapolator::ExtrapolatePose";"sensor::AdaptiveVoxelFilter";"LocalTrajectoryBuilder2D::ScanMatch";"PoseExtrapolator::AddPose";"LocalTrajectoryBuilder2D::InsertIntoSubmap"};
+                                "sensor::AdaptiveVoxelFilter"->"sensor::AdaptivelyVoxelFiltered"->"sensor::VoxelFilter";
+                                "PoseExtrapolator::ExtrapolatePose"->{"PoseExtrapolator::ExtrapolateTranslation";"PoseExtrapolator::ExtrapolateRotation";}
+                                    "PoseExtrapolator::ExtrapolateRotation"->"PoseExtrapolator::AdvanceImuTracker";
                                 "LocalTrajectoryBuilder2D::ScanMatch"->{"RealTimeCorrelativeScanMatcher2D::Match";"CeresScanMatcher2D::Match"};
                                     "CeresScanMatcher2D::Match"->{"scan_matching::CreateOccupiedSpaceCostFunction2D";"TranslationDeltaCostFunctor2D::CreateAutoDiffCostFunction";"RotationDeltaCostFunctor2D::CreateAutoDiffCostFunction"};
                                 "LocalTrajectoryBuilder2D::InsertIntoSubmap"->{"MotionFilter::IsSimilar";"ActiveSubmaps2D::InsertRangeData"};
                                     "ActiveSubmaps2D::InsertRangeData"->{"ActiveSubmaps2D::AddSubmap";"Submap2D::InsertRangeData";"Submap2D::Finish"};
-                                        "ActiveSubmaps2D::AddSubmap"->"ActiveSubmaps2D::CreateGrid";
+                                        "ActiveSubmaps2D::AddSubmap"->{"Submap2D::Submap2D";"ActiveSubmaps2D::CreateGrid";}
                                         "Submap2D::InsertRangeData"->"ProbabilityGridRangeDataInserter2D::Insert"->{"mapping::CastRays";"Grid2D::FinishUpdate"};
                                             "mapping::CastRays"->{"mapping::GrowAsNeeded";"ProbabilityGrid::ApplyLookupTable"};
                                                 "mapping::GrowAsNeeded"->"Grid2D::GrowLimits";
@@ -159,31 +191,41 @@ digraph cartographer{
                         "PoseGraph2D::AddNode"->{"PoseGraph2D::GetLocalToGlobalTransform";"PoseGraph2D::AppendNode";"PoseGraph2D::AddWorkItem";"PoseGraph2D::ComputeConstraintsForNode"};
                             "PoseGraph2D::GetLocalToGlobalTransform"->"PoseGraph2D::ComputeLocalToGlobalTransform";
                             "PoseGraph2D::AppendNode"->{"PoseGraph2D::AddTrajectoryIfNeeded";"PoseGraph2D::CanAddWorkItemModifying";"ConstTrajectoryIterator::Append"};
-                            "PoseGraph2D::ComputeConstraintsForNode"->{"PoseGraph2D::InitializeGlobalSubmapPoses";"OptimizationProblem2D::AddTrajectoryNode";"transform::Project2D";"constraints::ComputeSubmapPose";"PoseGraph2D::ComputeConstraint";"ConstraintBuilder2D::NotifyEndOfNode"};
-                                "PoseGraph2D::InitializeGlobalSubmapPoses"->{"TrajectoryConnectivityState::Connect";"OptimizationProblem2D::AddSubmap";"PoseGraph2D::ComputeLocalToGlobalTransform";"constraints::ComputeSubmapPose"};
+                            "PoseGraph2D::ComputeConstraintsForNode"->{"PoseGraph2D::InitializeGlobalSubmapPoses";"OptimizationProblem2D::AddTrajectoryNode";"PoseGraph2D::ComputeConstraint";"ConstraintBuilder2D::NotifyEndOfNode"};
+                                "ConstraintBuilder2D::NotifyEndOfNode"->"Task::SetWorkItem";
+                                "PoseGraph2D::InitializeGlobalSubmapPoses"->{"TrajectoryConnectivityState::Connect";"OptimizationProblem2D::AddSubmap";"PoseGraph2D::ComputeLocalToGlobalTransform";}
                                 "PoseGraph2D::ComputeConstraint"->{"ConstraintBuilder2D::MaybeAddConstraint";"ConstraintBuilder2D::MaybeAddGlobalConstraint"};
                                     "ConstraintBuilder2D::MaybeAddConstraint"->{"ConstraintBuilder2D::DispatchScanMatcherConstruction";"Task::SetWorkItem";"ConstraintBuilder2D::ComputeConstraint";"Task::AddDependency"};
-                                        "ConstraintBuilder2D::ComputeConstraint"->{"FastCorrelativeScanMatcher2D::MatchFullSubmap";"FastCorrelativeScanMatcher2D::Match"}->"FastCorrelativeScanMatcher2D::MatchWithSearchParameters"->{"scan_matching::GenerateRotatedScans";"scan_matching::DiscretizeScans";"SearchParameters::ShrinkToFit";"FastCorrelativeScanMatcher2D::ComputeLowestResolutionCandidates";"FastCorrelativeScanMatcher2D::BranchAndBound"};
+                                        "ConstraintBuilder2D::DispatchScanMatcherConstruction"->{"Task::SetWorkItem";"FastCorrelativeScanMatcher2D::FastCorrelativeScanMatcher2D";}
+                                        "ConstraintBuilder2D::ComputeConstraint"->{"FastCorrelativeScanMatcher2D::MatchFullSubmap";"FastCorrelativeScanMatcher2D::Match";"CeresScanMatcher2D::Match";}
+                                        {"FastCorrelativeScanMatcher2D::MatchFullSubmap";"FastCorrelativeScanMatcher2D::Match"}->"FastCorrelativeScanMatcher2D::MatchWithSearchParameters"->{"scan_matching::GenerateRotatedScans";"scan_matching::DiscretizeScans";"SearchParameters::ShrinkToFit";"FastCorrelativeScanMatcher2D::ComputeLowestResolutionCandidates";"FastCorrelativeScanMatcher2D::BranchAndBound"};
+                                            "FastCorrelativeScanMatcher2D::BranchAndBound"->{"FastCorrelativeScanMatcher2D::ScoreCandidates";"FastCorrelativeScanMatcher2D::BranchAndBound";}
+                                            "FastCorrelativeScanMatcher2D::ComputeLowestResolutionCandidates"->{"FastCorrelativeScanMatcher2D::GenerateLowestResolutionCandidates";"FastCorrelativeScanMatcher2D::ScoreCandidates";}
         "Node::HandleMultiEchoLaserScanMessage"->{"FixedRatioSampler::Pulse";"SensorBridge::HandleMultiEchoLaserScanMessage"};
             "SensorBridge::HandleMultiEchoLaserScanMessage"->"SensorBridge::HandleLaserScan";
         "Node::HandlePointCloud2Message"->{"FixedRatioSampler::Pulse";"SensorBridge::HandlePointCloud2Message"};
             "SensorBridge::HandlePointCloud2Message"->"SensorBridge::HandleRangefinder";
-        "Node::HandleImuMessage"->{"FixedRatioSampler::Pulse";"MapBuilderBridge::sensor_bridge";"SensorBridge::ToImuData";"PoseExtrapolator::AddImuData";"SensorBridge::HandleImuMessage"};
+        "Node::HandleImuMessage"->{"FixedRatioSampler::Pulse";"SensorBridge::ToImuData";"PoseExtrapolator::AddImuData";"SensorBridge::HandleImuMessage"};
             "PoseExtrapolator::AddImuData"->"PoseExtrapolator::TrimImuData";
-            "SensorBridge::HandleImuMessage"->{"SensorBridge::ToImuData";"CollatedTrajectoryBuilder::AddSensorData";"GlobalTrajectoryBuilder::AddSensorData"};
+            "SensorBridge::HandleImuMessage"->{"SensorBridge::ToImuData";"CollatedTrajectoryBuilder::AddSensorData";};
                 "CollatedTrajectoryBuilder::AddData"->"Collator::AddSensorData"->"OrderedMultiQueue::Add";
                 "GlobalTrajectoryBuilder::AddSensorData"->{"LocalTrajectoryBuilder2D::AddImuData";"PoseGraph2D::AddImuData"};
                     "LocalTrajectoryBuilder2D::AddImuData"->{"LocalTrajectoryBuilder2D::InitializeExtrapolator";"PoseExtrapolator::AddImuData"};
+                        "LocalTrajectoryBuilder2D::InitializeExtrapolator"->"PoseExtrapolator::AddPose"->{"PoseExtrapolator::UpdateVelocitiesFromPoses";"PoseExtrapolator::AdvanceImuTracker";"PoseExtrapolator::TrimImuData";"PoseExtrapolator::TrimOdometryData";"ImuTracker::ImuTracker";}
                     "PoseGraph2D::AddImuData"->{"PoseGraph2D::AddWorkItem";"OptimizationProblem2D::AddImuData"};
-        "Node::HandleOdometryMessage"->{"FixedRatioSampler::Pulse";"MapBuilderBridge::sensor_bridge";"SensorBridge::ToOdometryData";"PoseExtrapolator::AddOdometryData";"SensorBridge::HandleOdometryMessage"};
+        "Node::HandleOdometryMessage"->{"FixedRatioSampler::Pulse";"SensorBridge::ToOdometryData";"PoseExtrapolator::AddOdometryData";"SensorBridge::HandleOdometryMessage"};
             "PoseExtrapolator::AddOdometryData"->{"PoseExtrapolator::TrimOdometryData";"里程计坐标系->基准坐标系"};
-            "SensorBridge::HandleOdometryMessage"->{"SensorBridge::ToOdometryData";{"CollatedTrajectoryBuilder::AddSensorData";"GlobalTrajectoryBuilder::AddSensorData"}};
+            "SensorBridge::HandleOdometryMessage"->{"SensorBridge::ToOdometryData";{"CollatedTrajectoryBuilder::AddSensorData";}};
         "Node::HandleNavSatFixMessage"->{"FixedRatioSampler::Pulse";"SensorBridge::HandleNavSatFixMessage"};
-            "SensorBridge::HandleNavSatFixMessage"->{"cartographer_ros::ComputeLocalFrameFromLatLong";{"CollatedTrajectoryBuilder::AddSensorData";"GlobalTrajectoryBuilder::AddSensorData"}};
+            "SensorBridge::HandleNavSatFixMessage"->{"cartographer_ros::ComputeLocalFrameFromLatLong";"CollatedTrajectoryBuilder::AddSensorData"};
+                "GlobalTrajectoryBuilder::AddSensorData"->"PoseGraph2D::AddFixedFramePoseData"->{"PoseGraph2D::AddWorkItem";"OptimizationProblem2D::AddFixedFramePoseData"};
         "Node::HandleLandmarkMessage"->{"FixedRatioSampler::Pulse";"SensorBridge::HandleLandmarkMessage"};
-            "SensorBridge::HandleLandmarkMessage"->{"TfBridge::LookupToTracking";{"CollatedTrajectoryBuilder::AddSensorData";"GlobalTrajectoryBuilder::AddSensorData"}};
+            "SensorBridge::HandleLandmarkMessage"->"CollatedTrajectoryBuilder::AddSensorData"->"GlobalTrajectoryBuilder::AddSensorData"->"PoseGraph2D::AddLandmarkData"->{"PoseGraph2D::AddWorkItem";"PoseGraph2D::CanAddWorkItemModifying";}
 
     "Node::FinishAllTrajectories"->"Node::FinishTrajectoryUnderLock";
+    "Node::HandleWriteState"->"MapBuilderBridge::SerializeState"->"MapBuilder::SerializeStateToFile";
+    "Node::HandleGetTrajectoryStates"->"MapBuilderBridge::GetTrajectoryStates"->"PoseGraph2D::GetTrajectoryStates";
+    "Node::HandleReadMetrics"->"FamilyFactory::ReadMetrics";
     "Node::RunFinalOptimization"->"MapBuilderBridge::RunFinalOptimization"->"PoseGraph2D::RunFinalOptimization"->{"PoseGraph2D::AddWorkItem";"OptimizationProblem2D::SetMaxNumIterations";"PoseGraph2D::WaitForAllComputations"};
-    "Node::SerializeState"->"MapBuilderBridge::SerializeState"->"MapBuilder::SerializeStateToFile"
+    "Node::SerializeState"->"MapBuilderBridge::SerializeState";
 }
