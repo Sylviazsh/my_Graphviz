@@ -1,5 +1,5 @@
 digraph cartographer{
-    rankdir="LR" // 布局从左到右
+    rankdir="LR"; // 布局从左到右
     node [shape=record]; // 设置所有节点为矩形
     
     subgraph Node1{
