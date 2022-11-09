@@ -102,6 +102,7 @@ digraph cartographer{
         "mapping::CreateMapBuilder";"mapping::CreateGlobalTrajectoryBuilder2D";"mapping::MaybeAddPureLocalizationTrimmer";"mapping::ComputeSubmapFreshness";
         "mapping::AddSubmapsToSubmapCoverageGrid2D";"mapping::FindSubmapIdsToTrim";"mapping::CastRays";"mapping::GrowAsNeeded";"mapping::RayToPixelMask";
         "mapping::ProbabilityToCorrespondenceCost";"mapping::CorrespondenceCostToValue";"mapping::ValueToCorrespondenceCost";"mapping::CorrespondenceCostToProbability";
+        "mapping::PrecomputeValueToBoundedFloat";"mapping::SlowValueToBoundedFloat";
     }
 
     subgraph functions{
@@ -195,7 +196,8 @@ digraph cartographer{
                                     "CeresScanMatcher2D::Match"->{"scan_matching::CreateOccupiedSpaceCostFunction2D";"TranslationDeltaCostFunctor2D::CreateAutoDiffCostFunction";"RotationDeltaCostFunctor2D::CreateAutoDiffCostFunction"};
                                 "LocalTrajectoryBuilder2D::InsertIntoSubmap"->{"MotionFilter::IsSimilar";"ActiveSubmaps2D::InsertRangeData"};
                                     "ActiveSubmaps2D::InsertRangeData"->{"ActiveSubmaps2D::AddSubmap";"Submap2D::InsertRangeData";"Submap2D::Finish"};
-                                        "ActiveSubmaps2D::AddSubmap"->{"Submap2D::Submap2D";"ActiveSubmaps2D::CreateGrid";}
+                                        "ActiveSubmaps2D::AddSubmap"->{"Submap2D::Submap2D";"Grid2D::Grid2D";"ActiveSubmaps2D::CreateGrid";}
+                                            "Grid2D::Grid2D"->"ValueConversionTables::GetConversionTable"->"mapping::PrecomputeValueToBoundedFloat"->"mapping::SlowValueToBoundedFloat";
                                         "Submap2D::InsertRangeData"->"ProbabilityGridRangeDataInserter2D::Insert"->{"mapping::CastRays";"Grid2D::FinishUpdate"};
                                             "mapping::CastRays"->{"mapping::GrowAsNeeded";"ProbabilityGrid::ApplyLookupTable";"mapping::RayToPixelMask"};
                                                 "mapping::GrowAsNeeded"->"Grid2D::GrowLimits";
