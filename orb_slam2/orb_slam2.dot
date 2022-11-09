@@ -1,0 +1,92 @@
+digraph orb_slam2{
+    rankdir="LR";
+    node [shape=record];
+
+    subgraph System{
+        node [style=filled];
+        node [fillcolor="#fbb4ae"];
+        "System::System";"System::TrackMonocular";"System::Shutdown";"System::SaveKeyFrameTrajectoryTUM";
+    }
+
+    subgraph Tracking{
+        node [style=filled];
+        node [fillcolor="#b3cde3"];
+        "Tracking::GrabImageMonocular";"Tracking::Track";"Tracking::MonocularInitialization";"Tracking::CheckReplacedInLastFrame";
+        "Tracking::TrackReferenceKeyFrame";"Tracking::TrackWithMotionModel";"Tracking::Relocalization";"Tracking::TrackLocalMap";
+        "Tracking::NeedNewKeyFrame";"Tracking::CreateNewKeyFrame";"Tracking::CreateInitialMapMonocular";"Tracking::UpdateLastFrame";
+        "Tracking::UpdateLocalMap";"Tracking::SearchLocalPoints";"Tracking::UpdateLocalKeyFrames";"Tracking::UpdateLocalPoints";
+    }
+
+    subgraph Frame{
+        node [style=filled];
+        node [fillcolor="#ccebc5"];
+        "Frame::Frame";"Frame::ExtractORB";"Frame::UndistortKeyPoints";"Frame::ComputeImageBounds";
+        "Frame::AssignFeaturesToGrid";"Frame::PosInGrid";"Frame::ComputeBoW";"Frame::GetFeaturesInArea";
+    }
+
+    subgraph ORBextractor{
+        node [style=filled];
+        node [fillcolor="#decbe4"];
+        "ORBextractor::operator()";"ORBextractor::ComputePyramid";"ORBextractor::ComputeKeyPointsOctTree";"ORBextractor::DistributeOctTree";"ORBextractor::ORBextractor";
+    }
+
+    subgraph ORBmatcher{
+        node [style=filled];
+        node [fillcolor="#fed9a6"];
+        "ORBmatcher::SearchForInitialization";"ORBmatcher::SearchByBoW";"ORBmatcher::SearchByProjection";
+        "ORBmatcher::DescriptorDistance";"ORBmatcher::ComputeThreeMaxima";"ORBmatcher::RadiusByViewingCos";
+    }
+
+    subgraph PnPsolver{
+        node [style=filled];
+        node [fillcolor="#ffffcc"];
+        "PnPsolver::SetRansacParameters";"PnPsolver::iterate";"PnPsolver::set_maximum_number_of_correspondences";"PnPsolver::add_correspondence";"PnPsolver::compute_pose";
+        "PnPsolver::CheckInliers";"PnPsolver::Refine";"PnPsolver::choose_control_points";"PnPsolver::compute_barycentric_coordinates";"PnPsolver::compute_L_6x10";
+        "PnPsolver::compute_rho";"PnPsolver::find_betas_approx_1";"PnPsolver::find_betas_approx_2";"PnPsolver::find_betas_approx_3";"PnPsolver::gauss_newton";
+        "PnPsolver::compute_R_and_t";"PnPsolver::copy_R_and_t";"PnPsolver::compute_A_and_b_gauss_newton";"PnPsolver::qr_solve";"PnPsolver::compute_ccs";
+        "PnPsolver::compute_pcs";"PnPsolver::solve_for_sign";"PnPsolver::reprojection_error";
+    }
+
+    "mono_tum.cc"->main->{"System::System";"System::TrackMonocular";"System::Shutdown";"System::SaveKeyFrameTrajectoryTUM"};
+
+    "System::TrackMonocular"->"Tracking::GrabImageMonocular"->{"Frame::Frame";"Tracking::Track";}
+
+    "Frame::Frame"->{"Frame::ExtractORB";"Frame::UndistortKeyPoints";"Frame::ComputeImageBounds";"Frame::AssignFeaturesToGrid"}
+    "Frame::ExtractORB"->"ORBextractor::operator()"->{"ORBextractor::ComputePyramid";"ORBextractor::ComputeKeyPointsOctTree";"ORB_SLAM2::computeDescriptors";}
+        "ORBextractor::ComputeKeyPointsOctTree"->{"ORBextractor::DistributeOctTree";"ORB_SLAM2::computeOrientation";}
+        "ORB_SLAM2::computeDescriptors"->"ORB_SLAM2::computeOrbDescriptor";
+    "Frame::AssignFeaturesToGrid"->"Frame::PosInGrid";
+
+    "Tracking::Track"->{"Tracking::MonocularInitialization";"FrameDrawer::Update";"Tracking::CheckReplacedInLastFrame";"Tracking::TrackReferenceKeyFrame";
+                        "Tracking::TrackWithMotionModel";"Tracking::Relocalization";"Tracking::TrackLocalMap";"Tracking::NeedNewKeyFrame";"Tracking::CreateNewKeyFrame";}
+    
+    "Tracking::MonocularInitialization"->{"ORBextractor::ORBextractor";"ORBmatcher::SearchForInitialization";"Initializer::Initialize";"Tracking::CreateInitialMapMonocular";}
+        "ORBmatcher::SearchForInitialization"->{"Frame::GetFeaturesInArea";"ORBmatcher::DescriptorDistance";"ORBmatcher::ComputeThreeMaxima";}
+        "Tracking::CreateInitialMapMonocular"->{"KeyFrame::ComputeBoW";"MapPoint::ComputeDistinctiveDescriptors";"MapPoint::UpdateNormalAndDepth";}
+            "MapPoint::ComputeDistinctiveDescriptors"->"ORBmatcher::DescriptorDistance";
+    
+    "Tracking::TrackReferenceKeyFrame"->{"Frame::ComputeBoW";"ORBmatcher::SearchByBoW";"Optimizer::PoseOptimization";}
+        "ORBmatcher::SearchByBoW"->{"ORBmatcher::DescriptorDistance";"ORBmatcher::ComputeThreeMaxima";}
+    
+    "Tracking::TrackWithMotionModel"->{"Tracking::UpdateLastFrame";"ORBmatcher::SearchByProjection";"Optimizer::PoseOptimization";}
+        "Optimizer::PoseOptimization"->{"ORBmatcher::RadiusByViewingCos";"Frame::GetFeaturesInArea";"ORBmatcher::DescriptorDistance";"MapPoint::PredictScale";"ORBmatcher::ComputeThreeMaxima";}
+    
+    "Tracking::Relocalization"->{"Frame::ComputeBoW";"KeyFrameDatabase::DetectRelocalizationCandidates";"ORBmatcher::SearchByBoW";"PnPsolver::SetRansacParameters";"PnPsolver::iterate";"Optimizer::PoseOptimization";"ORBmatcher::SearchByProjection";}
+        "PnPsolver::iterate"->{"PnPsolver::set_maximum_number_of_correspondences";"PnPsolver::add_correspondence";"PnPsolver::compute_pose";"PnPsolver::CheckInliers";"PnPsolver::Refine";}
+            "PnPsolver::compute_pose"->{"PnPsolver::choose_control_points";"PnPsolver::compute_barycentric_coordinates";"PnPsolver::compute_L_6x10";"PnPsolver::compute_rho";
+                                        "PnPsolver::find_betas_approx_1";"PnPsolver::find_betas_approx_2";"PnPsolver::find_betas_approx_3";"PnPsolver::gauss_newton";"PnPsolver::compute_R_and_t";"PnPsolver::copy_R_and_t";}
+                                            "PnPsolver::gauss_newton"->{"PnPsolver::compute_A_and_b_gauss_newton";"PnPsolver::qr_solve";}
+                                            "PnPsolver::compute_R_and_t"->{"PnPsolver::compute_ccs";"PnPsolver::compute_pcs";"PnPsolver::solve_for_sign";"PnPsolver::reprojection_error";}
+            "PnPsolver::Refine"->{"PnPsolver::set_maximum_number_of_correspondences";"PnPsolver::add_correspondence";"PnPsolver::compute_pose";"PnPsolver::CheckInliers";}
+    
+    "Tracking::TrackLocalMap"->{"Tracking::UpdateLocalMap";"Tracking::SearchLocalPoints";"Optimizer::PoseOptimization";}
+        "Tracking::UpdateLocalMap"->{"Tracking::UpdateLocalKeyFrames";"Tracking::UpdateLocalPoints";}
+        "Tracking::SearchLocalPoints"->"ORBmatcher::SearchByProjection";
+
+    "Tracking::NeedNewKeyFrame"->"KeyFrame::TrackedMapPoints";
+
+    "Tracking::CreateNewKeyFrame"->{"MapPoint::ComputeDistinctiveDescriptors";"MapPoint::UpdateNormalAndDepth";}
+        "MapPoint::ComputeDistinctiveDescriptors"->"ORBmatcher::DescriptorDistance";
+
+
+}
