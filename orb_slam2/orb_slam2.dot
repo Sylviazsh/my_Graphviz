@@ -15,6 +15,7 @@ digraph orb_slam2{
         "Tracking::TrackReferenceKeyFrame";"Tracking::TrackWithMotionModel";"Tracking::Relocalization";"Tracking::TrackLocalMap";
         "Tracking::NeedNewKeyFrame";"Tracking::CreateNewKeyFrame";"Tracking::CreateInitialMapMonocular";"Tracking::UpdateLastFrame";
         "Tracking::UpdateLocalMap";"Tracking::SearchLocalPoints";"Tracking::UpdateLocalKeyFrames";"Tracking::UpdateLocalPoints";
+        "Tracking::Reset";
     }
 
     subgraph Frame{
@@ -47,6 +48,20 @@ digraph orb_slam2{
         "PnPsolver::compute_pcs";"PnPsolver::solve_for_sign";"PnPsolver::reprojection_error";
     }
 
+    subgraph KeyFrame{
+        node [style=filled];
+        node [fillcolor="#e5d8bd"];
+        "KeyFrame::TrackedMapPoints";"KeyFrame::ComputeBoW";"KeyFrame::UpdateConnections";"KeyFrame::ComputeSceneMedianDepth";
+        "KeyFrame::AddConnection";"KeyFrame::UpdateBestCovisibles";
+    }
+
+    subgraph Initializer{
+        node [style=filled];
+        node [fillcolor="#fddaec"];
+        "Initializer::Initialize";"Initializer::FindHomography";"Initializer::FindFundamental";"Initializer::ReconstructH";"Initializer::ReconstructF";
+        "Initializer::Normalize";"Initializer::ComputeH21";"Initializer::CheckHomography";"Initializer::CheckRT";"Initializer::DecomposeE";
+    }
+
     "mono_tum.cc"->main->{"System::System";"System::TrackMonocular";"System::Shutdown";"System::SaveKeyFrameTrajectoryTUM"};
 
     "System::TrackMonocular"->"Tracking::GrabImageMonocular"->{"Frame::Frame";"Tracking::Track";}
@@ -54,6 +69,8 @@ digraph orb_slam2{
     "Frame::Frame"->{"Frame::ExtractORB";"Frame::UndistortKeyPoints";"Frame::ComputeImageBounds";"Frame::AssignFeaturesToGrid"}
     "Frame::ExtractORB"->"ORBextractor::operator()"->{"ORBextractor::ComputePyramid";"ORBextractor::ComputeKeyPointsOctTree";"ORB_SLAM2::computeDescriptors";}
         "ORBextractor::ComputeKeyPointsOctTree"->{"ORBextractor::DistributeOctTree";"ORB_SLAM2::computeOrientation";}
+            "ORBextractor::DistributeOctTree"->"ExtractorNode::DivideNode";
+            "ORB_SLAM2::computeOrientation"->"ORB_SLAM2::IC_Angle";
         "ORB_SLAM2::computeDescriptors"->"ORB_SLAM2::computeOrbDescriptor";
     "Frame::AssignFeaturesToGrid"->"Frame::PosInGrid";
 
@@ -62,8 +79,14 @@ digraph orb_slam2{
     
     "Tracking::MonocularInitialization"->{"ORBextractor::ORBextractor";"ORBmatcher::SearchForInitialization";"Initializer::Initialize";"Tracking::CreateInitialMapMonocular";}
         "ORBmatcher::SearchForInitialization"->{"Frame::GetFeaturesInArea";"ORBmatcher::DescriptorDistance";"ORBmatcher::ComputeThreeMaxima";}
-        "Tracking::CreateInitialMapMonocular"->{"KeyFrame::ComputeBoW";"MapPoint::ComputeDistinctiveDescriptors";"MapPoint::UpdateNormalAndDepth";}
+        "Initializer::Initialize"->{"Initializer::FindHomography";"Initializer::FindFundamental";"Initializer::ReconstructH";"Initializer::ReconstructF";}
+            {"Initializer::FindHomography";"Initializer::FindFundamental"}->{"Initializer::Normalize";"Initializer::ComputeH21";"Initializer::CheckHomography";}
+            "Initializer::ReconstructH"->"Initializer::CheckRT";
+            "Initializer::ReconstructF"->{"Initializer::DecomposeE";"Initializer::CheckRT";}
+        "Tracking::CreateInitialMapMonocular"->{"KeyFrame::ComputeBoW";"MapPoint::ComputeDistinctiveDescriptors";"MapPoint::UpdateNormalAndDepth";"KeyFrame::UpdateConnections";"Optimizer::GlobalBundleAdjustemnt";"KeyFrame::ComputeSceneMedianDepth";"KeyFrame::TrackedMapPoints";"Tracking::Reset";}
             "MapPoint::ComputeDistinctiveDescriptors"->"ORBmatcher::DescriptorDistance";
+            "KeyFrame::UpdateConnections"->"KeyFrame::AddConnection"->"KeyFrame::UpdateBestCovisibles";
+            "Optimizer::GlobalBundleAdjustemnt"->"Optimizer::BundleAdjustment"->"MapPoint::UpdateNormalAndDepth";
     
     "Tracking::TrackReferenceKeyFrame"->{"Frame::ComputeBoW";"ORBmatcher::SearchByBoW";"Optimizer::PoseOptimization";}
         "ORBmatcher::SearchByBoW"->{"ORBmatcher::DescriptorDistance";"ORBmatcher::ComputeThreeMaxima";}
@@ -86,7 +109,6 @@ digraph orb_slam2{
     "Tracking::NeedNewKeyFrame"->"KeyFrame::TrackedMapPoints";
 
     "Tracking::CreateNewKeyFrame"->{"MapPoint::ComputeDistinctiveDescriptors";"MapPoint::UpdateNormalAndDepth";}
-        "MapPoint::ComputeDistinctiveDescriptors"->"ORBmatcher::DescriptorDistance";
 
 
 }
