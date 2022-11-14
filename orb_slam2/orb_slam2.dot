@@ -22,13 +22,13 @@ digraph orb_slam2{
         node [style=filled];
         node [fillcolor="#ccebc5"];
         "Frame::Frame";"Frame::ExtractORB";"Frame::UndistortKeyPoints";"Frame::ComputeImageBounds";
-        "Frame::AssignFeaturesToGrid";"Frame::PosInGrid";"Frame::ComputeBoW";"Frame::GetFeaturesInArea";
+        "Frame::AssignFeaturesToGrid";"Frame::PosInGrid";"Frame::ComputeBoW";"Frame::GetFeaturesInArea";"Frame::UnprojectStereo";
     }
 
     subgraph ORBextractor{
         node [style=filled];
         node [fillcolor="#decbe4"];
-        "ORBextractor::operator()";"ORBextractor::ComputePyramid";"ORBextractor::ComputeKeyPointsOctTree";"ORBextractor::DistributeOctTree";"ORBextractor::ORBextractor";
+        "ORBextractor::operator()";"ORBextractor::ComputePyramid";"ORBextractor::ComputeKeyPointsOctTree";"ORBextractor::DistributeOctTree";
     }
 
     subgraph ORBmatcher{
@@ -77,10 +77,11 @@ digraph orb_slam2{
     "Tracking::Track"->{"Tracking::MonocularInitialization";"FrameDrawer::Update";"Tracking::CheckReplacedInLastFrame";"Tracking::TrackReferenceKeyFrame";
                         "Tracking::TrackWithMotionModel";"Tracking::Relocalization";"Tracking::TrackLocalMap";"Tracking::NeedNewKeyFrame";"Tracking::CreateNewKeyFrame";}
     
-    "Tracking::MonocularInitialization"->{"ORBextractor::ORBextractor";"ORBmatcher::SearchForInitialization";"Initializer::Initialize";"Tracking::CreateInitialMapMonocular";}
+    "Tracking::MonocularInitialization"->{"ORBmatcher::SearchForInitialization";"Initializer::Initialize";"Tracking::CreateInitialMapMonocular";}
         "ORBmatcher::SearchForInitialization"->{"Frame::GetFeaturesInArea";"ORBmatcher::DescriptorDistance";"ORBmatcher::ComputeThreeMaxima";}
         "Initializer::Initialize"->{"Initializer::FindHomography";"Initializer::FindFundamental";"Initializer::ReconstructH";"Initializer::ReconstructF";}
-            {"Initializer::FindHomography";"Initializer::FindFundamental"}->{"Initializer::Normalize";"Initializer::ComputeH21";"Initializer::CheckHomography";}
+            "Initializer::FindHomography"->{"Initializer::Normalize";"Initializer::ComputeH21";"Initializer::CheckHomography";}
+            "Initializer::FindFundamental"->{"Initializer::Normalize";"Initializer::ComputeF21";"Initializer::CheckFundamental";}
             "Initializer::ReconstructH"->"Initializer::CheckRT";
             "Initializer::ReconstructF"->{"Initializer::DecomposeE";"Initializer::CheckRT";}
         "Tracking::CreateInitialMapMonocular"->{"KeyFrame::ComputeBoW";"MapPoint::ComputeDistinctiveDescriptors";"MapPoint::UpdateNormalAndDepth";"KeyFrame::UpdateConnections";"Optimizer::GlobalBundleAdjustemnt";"KeyFrame::ComputeSceneMedianDepth";"KeyFrame::TrackedMapPoints";"Tracking::Reset";}
@@ -92,7 +93,8 @@ digraph orb_slam2{
         "ORBmatcher::SearchByBoW"->{"ORBmatcher::DescriptorDistance";"ORBmatcher::ComputeThreeMaxima";}
     
     "Tracking::TrackWithMotionModel"->{"Tracking::UpdateLastFrame";"ORBmatcher::SearchByProjection";"Optimizer::PoseOptimization";}
-        "Optimizer::PoseOptimization"->{"ORBmatcher::RadiusByViewingCos";"Frame::GetFeaturesInArea";"ORBmatcher::DescriptorDistance";"MapPoint::PredictScale";"ORBmatcher::ComputeThreeMaxima";}
+        "Tracking::UpdateLastFrame"->"Frame::UnprojectStereo";
+        "ORBmatcher::SearchByProjection"->{"ORBmatcher::RadiusByViewingCos";"Frame::GetFeaturesInArea";"MapPoint::PredictScale";"ORBmatcher::DescriptorDistance";"ORBmatcher::ComputeThreeMaxima";}
     
     "Tracking::Relocalization"->{"Frame::ComputeBoW";"KeyFrameDatabase::DetectRelocalizationCandidates";"ORBmatcher::SearchByBoW";"PnPsolver::SetRansacParameters";"PnPsolver::iterate";"Optimizer::PoseOptimization";"ORBmatcher::SearchByProjection";}
         "PnPsolver::iterate"->{"PnPsolver::set_maximum_number_of_correspondences";"PnPsolver::add_correspondence";"PnPsolver::compute_pose";"PnPsolver::CheckInliers";"PnPsolver::Refine";}
