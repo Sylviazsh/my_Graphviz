@@ -157,6 +157,7 @@ digraph cartographer{
         "MapBuilderBridge::AddTrajectory"->{"MapBuilder::AddTrajectoryBuilder";"MapBuilderBridge::OnLocalSlamResult";"SensorBridge::SensorBridge"};
             "MapBuilder::AddTrajectoryBuilder"->{"MotionFilter::MotionFilter";"LocalTrajectoryBuilder2D::LocalTrajectoryBuilder2D";"CollatedTrajectoryBuilder::CollatedTrajectoryBuilder";"mapping::CreateGlobalTrajectoryBuilder2D";"mapping::MaybeAddPureLocalizationTrimmer";"PoseGraph2D::SetInitialTrajectoryPose"};
                 "CollatedTrajectoryBuilder::CollatedTrajectoryBuilder"->{"Collator::AddTrajectory";"CollatedTrajectoryBuilder::HandleCollatedSensorData";}
+                    "Collator::AddTrajectory"->"OrderedMultiQueue::AddQueue";
                     "CollatedTrajectoryBuilder::HandleCollatedSensorData"->"Dispatchable::AddToTrajectoryBuilder";
                         "Dispatchable::AddToTrajectoryBuilder"->"GlobalTrajectoryBuilder::AddSensorData"[label="expected_sensor";color=blue];
                 "mapping::CreateGlobalTrajectoryBuilder2D"->{"GlobalTrajectoryBuilder:GlobalTrajectoryBuilder";"LocalTrajectoryBuilder2D::LocalTrajectoryBuilder2D";"PoseGraph2D::PoseGraph2D";}
@@ -180,7 +181,7 @@ digraph cartographer{
             "SensorBridge::HandleLaserScanMessage"->"SensorBridge::HandleLaserScan"->{subdivision;"SensorBridge::HandleRangefinder"};
                 "SensorBridge::HandleRangefinder"->"CollatedTrajectoryBuilder::AddSensorData";
                     "CollatedTrajectoryBuilder::AddSensorData"->"CollatedTrajectoryBuilder::AddData"[label="laser、imu、odometry、gps、landmark";color=red];
-                        "CollatedTrajectoryBuilder::AddData"->"Collator::AddSensorData"->"OrderedMultiQueue::Add"->"OrderedMultiQueue::Dispatch";
+                        "CollatedTrajectoryBuilder::AddData"->"Collator::AddSensorData"->"OrderedMultiQueue::Add"->"OrderedMultiQueue::Dispatch"->"next_queue->callback"->"CollatedTrajectoryBuilder::HandleCollatedSensorData";
                     "GlobalTrajectoryBuilder::AddSensorData"->{"LocalTrajectoryBuilder2D::AddRangeData";"PoseGraph2D::AddNode"}[color=red;label="laser"];
                         "LocalTrajectoryBuilder2D::AddRangeData"->{"RangeDataCollator::AddRangeData";"LocalTrajectoryBuilder2D::InitializeExtrapolator";"PoseExtrapolator::ExtrapolatePose";"获取第i束激光及其原点，将hit转换为local坐标系，合理则加入accumulated_range_data_";"PoseExtrapolator::EstimateGravityOrientation";"LocalTrajectoryBuilder2D::AddAccumulatedRangeData";"LocalTrajectoryBuilder2D::TransformToGravityAlignedFrameAndFilter"};
                             "LocalTrajectoryBuilder2D::TransformToGravityAlignedFrameAndFilter"->{"sensor::CropRangeData";"sensor::VoxelFilter";}
